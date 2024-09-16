@@ -28,34 +28,39 @@ class ConversationManager():
         self.temperature = temperature if temperature else DEFAULT_TEMPERATURE
         self.max_tokens = max_tokens if max_tokens else DEFAULT_MAX_TOKENS
         self.system_message = system_message if system_message else DEFAULT_SYSTEM_MESSAGE
+        self.conversation_history = [
+            {'role': 'system', 'content': self.system_message}
+        ]
 
     def chat_completion(self, prompt, temperature=None, max_tokens=None):
         temperature = temperature if temperature is not None else self.temperature
         max_tokens = max_tokens if max_tokens is not None else self.max_tokens
+
+        # add user's prompt to the conversation history
+        self.conversation_history.append({'role': 'user', 'content': prompt})
         # There are three message roles: system, user, and assistant.
         # The "system" message is the first entry in the conversation history. It defines the AI's role, such as a helpful marketing assistant, which guides the AI in understanding the context of the interaction
         # "User" messages represent the questions or instructions given by the user
         # "Assistant" messages are the AI's responses to the user's inputs
-        messages = [
-            {
-                'role': 'system',
-                'content': self.system_message
-            },
-            {
-                'role': 'user',
-                'content': prompt
-            }
-        ]
         response = self.client.chat.completions.create(
             model=self.model,
-            messages=messages,
+            messages=self.conversation_history,
             temperature=temperature,
             max_tokens=max_tokens
         )
-        return response.choices[0].message.content
+        ai_response = response.choices[0].message.content
+        
+        # add AI's response to the history
+        self.conversation_history.append({'role': 'assistant', 'content': ai_response})
+        return ai_response
 
 conv_manager = ConversationManager()
 prompt = 'Can you help craft a marketing message that highlights our simplicity and vast template library?'
 
 response = conv_manager.chat_completion(prompt, temperature=0.5, max_tokens=50)
 print(response)
+
+# Check how conversation_history logs the conversation
+print('\nConversation_history goes like this\n')
+for message in conv_manager.conversation_history:
+    print(f'{message["role"]}: {message["content"]}')

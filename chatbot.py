@@ -2,6 +2,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import tiktoken
+import json
 
 # load the .env file
 # this reads the .env file in my application's root directory and loads the variables into my environment
@@ -13,9 +14,10 @@ DEFAULT_MODEL = 'gpt-3.5-turbo'
 DEFAULT_TEMPERATURE = 0.8
 DEFAULT_MAX_TOKENS = 512
 DEFAULT_TOKEN_BUDGET = 4096
+DEFAULT_HISTORY_FILE = 'conversation_history.json'
 
 class ConversationManager():
-    def __init__(self, api_key=None, base_url=None, model=None, temperature=None, max_tokens=None, token_budget=None):
+    def __init__(self, api_key=None, base_url=None, model=None, history_file=None, temperature=None, max_tokens=None, token_budget=None):
         if not api_key:
             api_key = DEFAULT_API_KEY
         if not base_url:
@@ -25,12 +27,12 @@ class ConversationManager():
         # This key is required to authenticate API requests to OpenAI's services
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
+        self.history_file = history_file if history_file else DEFAULT_HISTORY_FILE
         self.model = model if model else DEFAULT_MODEL
         self.temperature = temperature if temperature else DEFAULT_TEMPERATURE
         self.max_tokens = max_tokens if max_tokens else DEFAULT_MAX_TOKENS
         self.token_budget = token_budget if token_budget else DEFAULT_TOKEN_BUDGET
         
-        self.conversation_history = []
         self.system_messages = {
             'blogger': 'You are a creative blogger specializing in engaging and informative content for ABC Roasters.',
             'social_media_expert': 'You are a social media expert, crafting catchy and shareable posts for ABC Roasters.',
@@ -38,6 +40,7 @@ class ConversationManager():
             'custom': 'Enter your custom system message here.',
         }
         self.system_message = self.system_messages['blogger'] # set default persona
+        self.load_conversation_history()
 
     # calculate how many tokens needed to process the given text
     def count_tokens(self, text):
@@ -111,20 +114,42 @@ class ConversationManager():
         
         # add AI's response to the history
         self.conversation_history.append({'role': 'assistant', 'content': ai_response})
-        return ai_response
 
-conv_manager = ConversationManager(token_budget=80)
+        # save the conversation history after the chat completion
+        self.save_conversation_history()
+        return ai_response
+    
+    # Loads the conversation history from a JSON file if it exists
+    def load_conversation_history(self):
+        try:
+            with open(self.history_file, 'r') as file:
+                self.conversation_history = json.load(file)
+        except FileNotFoundError:
+            self.conversation_history = [{
+                'role': 'system', 
+                'content': self.system_message, 
+            }]
+        except json.JSONDecodeError:
+            print("Error reading the conversation history file. Starting with an empty history.")
+            self.conversation_history = [{
+                'role': 'system', 
+                'content': self.system_message, 
+            }]
+
+    # Saves the current conversation history to a JSON file
+    def save_conversation_history(self):
+        with open(self.history_file, 'w') as file:
+            json.dump(self.conversation_history, file, indent=4)
+
+conv_manager = ConversationManager(history_file='test.json')
 conv_manager.set_persona('creative_assistant')
 
+# Simulate chat completion
 prompt = 'Can you help craft a marketing message that highlights our simplicity and vast template library?'
-response = conv_manager.chat_completion(prompt, temperature=0.5, max_tokens=100)
+conv_manager.chat_completion(prompt)
 
-print(f'creative_assistant\'s answer: ')
-print(response)
+# Create a new instance to simulate a new session
+new_conv_manager = ConversationManager(history_file='test.json')
 
-conv_manager.set_custom_system_message('You always generate witty and humorous content for ABC roasters ')
-prompt = 'Can you help craft a marketing message that highlights our simplicity and vast template library?'
-response = conv_manager.chat_completion(prompt, temperature=0.5, max_tokens=100)
-
-print(f'\ncustom persona\'s answer: ')
-print(response)
+# Print the loaded conversation history
+print(new_conv_manager.conversation_history)

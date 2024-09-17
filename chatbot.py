@@ -13,10 +13,9 @@ DEFAULT_MODEL = 'gpt-3.5-turbo'
 DEFAULT_TEMPERATURE = 0.8
 DEFAULT_MAX_TOKENS = 512
 DEFAULT_TOKEN_BUDGET = 4096
-DEFAULT_SYSTEM_MESSAGE = 'You are a marketing specialist at an online graphic design platform that allows users to easily create designs using templates and tools'
 
 class ConversationManager():
-    def __init__(self, api_key=None, base_url=None, model=None, temperature=None, max_tokens=None, token_budget=None, system_message=None):
+    def __init__(self, api_key=None, base_url=None, model=None, temperature=None, max_tokens=None, token_budget=None):
         if not api_key:
             api_key = DEFAULT_API_KEY
         if not base_url:
@@ -29,11 +28,16 @@ class ConversationManager():
         self.model = model if model else DEFAULT_MODEL
         self.temperature = temperature if temperature else DEFAULT_TEMPERATURE
         self.max_tokens = max_tokens if max_tokens else DEFAULT_MAX_TOKENS
-        self.system_message = system_message if system_message else DEFAULT_SYSTEM_MESSAGE
         self.token_budget = token_budget if token_budget else DEFAULT_TOKEN_BUDGET
-        self.conversation_history = [
-            {'role': 'system', 'content': self.system_message}
-        ]
+        
+        self.conversation_history = []
+        self.system_messages = {
+            'blogger': 'You are a creative blogger specializing in engaging and informative content for ABC Roasters.',
+            'social_media_expert': 'You are a social media expert, crafting catchy and shareable posts for ABC Roasters.',
+            'creative_assistant': 'You are a creative assistant skilled in crafting engaging marketing content for ABC Roasters.',
+            'custom': 'Enter your custom system message here.',
+        }
+        self.system_message = self.system_messages['blogger'] # set default persona
 
     # calculate how many tokens needed to process the given text
     def count_tokens(self, text):
@@ -58,6 +62,32 @@ class ConversationManager():
             # Remove the oldest messages one by one, excluding the system message
             else:
                 self.conversation_history.pop(1)
+    
+    # Change the system message persona based on a predefined list
+    def set_persona(self, persona):
+        if persona in self.system_messages:
+            self.system_message = self.system_messages[persona]
+            self.update_system_message_in_history()
+        else:
+            raise ValueError(f'Unknown persona: {persona}. Available persona list: {list(self.system_messages.keys())}')
+    
+    # Update or insert the system message at the start of the conversation history
+    def update_system_message_in_history(self):
+        if self.conversation_history and self.conversation_history[0]['role'] == 'system':
+            self.conversation_history[0]['content'] = self.system_message
+        else:
+            self.conversation_history.insert(0, {
+                'role': 'system',
+                'content': self.system_message
+            })
+
+    # Set a custom system message and update the persona to use it
+    def set_custom_system_message(self, custom_message):
+        if not custom_message:
+            raise ValueError('Custom message cannot be empty')
+        self.system_messages['custom'] = custom_message
+        self.set_persona('custom')
+
 
     def chat_completion(self, prompt, temperature=None, max_tokens=None):
         temperature = temperature if temperature is not None else self.temperature
@@ -84,18 +114,17 @@ class ConversationManager():
         return ai_response
 
 conv_manager = ConversationManager(token_budget=80)
+conv_manager.set_persona('creative_assistant')
+
 prompt = 'Can you help craft a marketing message that highlights our simplicity and vast template library?'
 response = conv_manager.chat_completion(prompt, temperature=0.5, max_tokens=100)
 
-prompt = 'Please make it a bit shorter'
-response = conv_manager.chat_completion(prompt)
+print(f'creative_assistant\'s answer: ')
+print(response)
 
-print(f'\ntotal tokens used for the conversation history:')
-print(conv_manager.total_tokens_used())
+conv_manager.set_custom_system_message('You always generate witty and humorous content for ABC roasters ')
+prompt = 'Can you help craft a marketing message that highlights our simplicity and vast template library?'
+response = conv_manager.chat_completion(prompt, temperature=0.5, max_tokens=100)
 
-# Check how conversation_history logs the conversation
-print('\nConversation_history goes like this\n')
-for message in conv_manager.conversation_history:
-    print(f'{message["role"]}: {message["content"]}')
-
-print(conv_manager.total_tokens_used())
+print(f'\ncustom persona\'s answer: ')
+print(response)

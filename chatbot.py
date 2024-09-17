@@ -1,6 +1,7 @@
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
+import tiktoken
 
 # load the .env file
 # this reads the .env file in my application's root directory and loads the variables into my environment
@@ -31,6 +32,20 @@ class ConversationManager():
         self.conversation_history = [
             {'role': 'system', 'content': self.system_message}
         ]
+
+    # calculate how many tokens needed to process the given text
+    def count_tokens(self, text):
+        try:
+            encoding = tiktoken.encoding_for_model(self.model)
+        except:
+            encoding = tiktoken.get_encoding('cl100k_base')
+        
+        tokens = encoding.encode(text)
+        return len(tokens)
+    
+    # calculate how many tokens are being used to process messages in conversation_history
+    def total_tokens_used(self):
+        return sum(self.count_tokens(message['content']) for message in self.conversation_history)
 
     def chat_completion(self, prompt, temperature=None, max_tokens=None):
         temperature = temperature if temperature is not None else self.temperature
@@ -64,3 +79,19 @@ print(response)
 print('\nConversation_history goes like this\n')
 for message in conv_manager.conversation_history:
     print(f'{message["role"]}: {message["content"]}')
+
+# test count_tokens method
+print(f'\ntokens used for the last response:')
+print(conv_manager.count_tokens(response))
+
+# test total_tokens_used method
+print(f'\ntotal tokens used for the conversation history:')
+print(conv_manager.total_tokens_used())
+
+prompt = 'Please make it a bit shorter'
+response = conv_manager.chat_completion(prompt)
+
+print(f'\ntotal tokens used for the conversation history:')
+print(conv_manager.total_tokens_used())
+
+

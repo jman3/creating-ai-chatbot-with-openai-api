@@ -1,5 +1,6 @@
 from openai import OpenAI
 from dotenv import load_dotenv
+from datetime import datetime
 import os
 import tiktoken
 import json
@@ -14,7 +15,6 @@ DEFAULT_MODEL = 'gpt-3.5-turbo'
 DEFAULT_TEMPERATURE = 0.8
 DEFAULT_MAX_TOKENS = 512
 DEFAULT_TOKEN_BUDGET = 4096
-DEFAULT_HISTORY_FILE = 'conversation_history.json'
 
 class ConversationManager():
     def __init__(self, api_key=None, base_url=None, model=None, history_file=None, temperature=None, max_tokens=None, token_budget=None):
@@ -27,7 +27,12 @@ class ConversationManager():
         # This key is required to authenticate API requests to OpenAI's services
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
-        self.history_file = history_file if history_file else DEFAULT_HISTORY_FILE
+        if history_file is None:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            self.history_file = f'conversation_history_{timestamp}.json'
+        else:
+            self.history_file = history_file
+
         self.model = model if model else DEFAULT_MODEL
         self.temperature = temperature if temperature else DEFAULT_TEMPERATURE
         self.max_tokens = max_tokens if max_tokens else DEFAULT_MAX_TOKENS
@@ -104,12 +109,17 @@ class ConversationManager():
         # The "system" message is the first entry in the conversation history. It defines the AI's role, such as a helpful marketing assistant, which guides the AI in understanding the context of the interaction
         # "User" messages represent the questions or instructions given by the user
         # "Assistant" messages are the AI's responses to the user's inputs
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=self.conversation_history,
-            temperature=temperature,
-            max_tokens=max_tokens
-        )
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=self.conversation_history,
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+        except Exception as e:
+            print(f'An error occurred while generating a response: {e}')
+            return None
+
         ai_response = response.choices[0].message.content
         
         # add AI's response to the history
@@ -138,18 +148,20 @@ class ConversationManager():
 
     # Saves the current conversation history to a JSON file
     def save_conversation_history(self):
-        with open(self.history_file, 'w') as file:
-            json.dump(self.conversation_history, file, indent=4)
+        try:
+            with open(self.history_file, 'w') as file:
+                json.dump(self.conversation_history, file, indent=4)
+        except IOError as e:
+            print(f'An I/O error occurred while saving the conversation history: {e}')
+        except Exception as e:
+            print(f'An unexpected error occurred while saving the conversation history: {e}')
 
-conv_manager = ConversationManager(history_file='test.json')
+conv_manager = ConversationManager()
 conv_manager.set_persona('creative_assistant')
 
 # Simulate chat completion
 prompt = 'Can you help craft a marketing message that highlights our simplicity and vast template library?'
 conv_manager.chat_completion(prompt)
 
-# Create a new instance to simulate a new session
-new_conv_manager = ConversationManager(history_file='test.json')
+print(conv_manager.conversation_history)
 
-# Print the loaded conversation history
-print(new_conv_manager.conversation_history)

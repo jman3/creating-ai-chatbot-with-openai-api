@@ -1,6 +1,8 @@
 from openai import OpenAI
 from dotenv import load_dotenv
 from datetime import datetime
+from database_schema_info import schema_info
+from prompt_template import prompt_template
 import os
 import tiktoken
 import json
@@ -42,9 +44,10 @@ class ConversationManager():
             'blogger': 'You are a creative blogger specializing in engaging and informative content for ABC Roasters.',
             'social_media_expert': 'You are a social media expert, crafting catchy and shareable posts for ABC Roasters.',
             'creative_assistant': 'You are a creative assistant skilled in crafting engaging marketing content for ABC Roasters.',
+            'data_analyst': 'You are a data analyst skilled in writing SQL queries to analyze Canva\'s database.',
             'custom': 'Enter your custom system message here.',
         }
-        self.system_message = self.system_messages['blogger'] # set default persona
+        self.system_message = self.system_messages['creative_assistant'] # set default persona
         self.load_conversation_history()
 
     # calculate how many tokens needed to process the given text
@@ -157,11 +160,13 @@ class ConversationManager():
             print(f'An unexpected error occurred while saving the conversation history: {e}')
 
 conv_manager = ConversationManager()
-conv_manager.set_persona('creative_assistant')
+conv_manager.set_persona('data_analyst')
 
 # Simulate chat completion
-prompt = 'Can you help craft a marketing message that highlights our simplicity and vast template library?'
-conv_manager.chat_completion(prompt)
+question = input("Enter your question: ")
 
-print(conv_manager.conversation_history)
+prompt = f'tbd' # create prompt using question, prompt_template and schema_info
+response = conv_manager.chat_completion(prompt)
+
+print(response)
 
